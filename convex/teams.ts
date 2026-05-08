@@ -26,11 +26,44 @@ export const listMyTeams = query({
   },
 });
 
+export const getMyWorkspace = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    const memberships = await ctx.db.query("teamMembers").withIndex("by_userId", (q) => q.eq("userId", user.userId)).collect();
+    const activeMembership = memberships.find((item) => item.status === "active");
+    if (!activeMembership) return null;
+    const team = await ctx.db.get(activeMembership.teamId);
+    if (!team) return null;
+    const projects = await ctx.db.query("projects").withIndex("by_teamId", (q) => q.eq("teamId", team._id)).collect();
+    const members = await ctx.db.query("teamMembers").withIndex("by_teamId_and_status", (q) => q.eq("teamId", team._id).eq("status", "active")).collect();
+    return { user, team, projects, members };
+  },
+});
+
 export const getTeam = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
     await requireTeamMember(ctx, args.teamId);
     return ctx.db.get(args.teamId);
+  },
+});
+
+export const listTeamMembers = query({
+  args: { teamId: v.id("teams") },
+  handler: async (ctx, args) => {
+    await requireTeamMember(ctx, args.teamId);
+    const memberships = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_teamId_and_status", (q) => q.eq("teamId", args.teamId).eq("status", "active"))
+      .collect();
+
+    return Promise.all(
+      memberships.map(async (membership) => {
+        const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", membership.userId)).unique();
+        return { ...membership, profile };
+      }),
+    );
   },
 });
 

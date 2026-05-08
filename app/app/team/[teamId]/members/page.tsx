@@ -1,11 +1,7 @@
-import { AppShell } from "@/components/app-shell/app-shell";
-import { InviteMemberDialog } from "@/components/members/invite-member-dialog";
-import { MemberList } from "@/components/members/member-list";
+import { type Id } from "@/convex/_generated/dataModel";
+import { MembersView } from "@/components/views/members-view";
 
-export default function MembersPage() {
-  return (
-    <AppShell title="Members" eyebrow="Launch Team" action={<InviteMemberDialog />}>
-      <MemberList />
-    </AppShell>
-  );
+export default async function MembersPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = await params;
+  return <MembersView teamId={teamId as Id<"teams">} />;
 }

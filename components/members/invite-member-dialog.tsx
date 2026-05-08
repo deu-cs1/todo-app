@@ -1,10 +1,26 @@
 "use client";
 
+import { FormEvent, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useMutation } from "convex/react";
 import { LinkIcon, X } from "lucide-react";
+import { api } from "@/convex/_generated/api";
+import { type Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 
-export function InviteMemberDialog() {
+export function InviteMemberDialog({ teamId }: { teamId?: Id<"teams"> }) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"member" | "admin">("member");
+  const [token, setToken] = useState<string | null>(null);
+  const createInvite = useMutation(api.invites.createTeamInvite);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!teamId || !email.trim()) return;
+    const result = await createInvite({ teamId, email: email.trim(), role });
+    setToken(result.token);
+  }
+
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
@@ -24,23 +40,24 @@ export function InviteMemberDialog() {
           <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">
             Create a pending invite. The production mutation stores only a hashed invite token.
           </Dialog.Description>
-          <div className="mt-5 space-y-4">
+          <form onSubmit={onSubmit} className="mt-5 space-y-4">
             <label className="block text-sm font-semibold">
               Email
-              <input type="email" className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3" placeholder="teammate@company.com" />
+              <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3" placeholder="teammate@company.com" />
             </label>
             <label className="block text-sm font-semibold">
               Role
-              <select className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3">
-                <option>member</option>
-                <option>admin</option>
+              <select value={role} onChange={(event) => setRole(event.target.value as "member" | "admin")} className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3">
+                <option value="member">member</option>
+                <option value="admin">admin</option>
               </select>
             </label>
-            <Button className="w-full">
+            <Button disabled={!teamId || !email.trim()} className="w-full">
               <LinkIcon className="h-4 w-4" aria-hidden="true" />
               Generate invite link
             </Button>
-          </div>
+            {token && <p className="rounded-lg bg-muted p-3 text-xs font-medium text-muted-foreground">/invite/{token}</p>}
+          </form>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

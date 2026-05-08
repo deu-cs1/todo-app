@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useQuery } from "convex/react";
 import { CalendarDays, CircleDot, Inbox, LayoutList, Settings, UsersRound } from "lucide-react";
-import { projects, teams } from "@/lib/mock-data";
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -10,6 +13,11 @@ const navItems = [
 ];
 
 export function Sidebar({ active = "My Tasks" }: { active?: string }) {
+  const workspace = useQuery(api.teams.getMyWorkspace);
+  const team = workspace?.team;
+  const projects = workspace?.projects ?? [];
+  const members = workspace?.members ?? [];
+
   return (
     <aside className="hidden h-dvh w-72 shrink-0 border-r border-border bg-surface p-4 lg:block">
       <Link href="/" className="flex h-11 items-center gap-2 px-2 font-bold">
@@ -36,8 +44,8 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
       <div className="mt-8">
         <p className="px-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Teams</p>
         <div className="mt-3 rounded-xl border border-border bg-background p-3">
-          <p className="text-sm font-bold">{teams[0].name}</p>
-          <p className="mt-1 text-xs text-muted-foreground">4 members</p>
+          <p className="text-sm font-bold">{team?.name ?? "Preparing workspace"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{members.length || "..."} members</p>
         </div>
       </div>
       <div className="mt-6">
@@ -45,29 +53,28 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
         <div className="mt-3 space-y-1">
           {projects.map((project) => (
             <Link
-              key={project.id}
-              href={`/app/team/team-alpha/project/${project.id}`}
+              key={project._id}
+              href={`/app/team/${project.teamId}/project/${project._id}`}
               className="flex h-10 items-center justify-between rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <span className="flex min-w-0 items-center gap-3">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color ?? "#dc2626" }} />
                 <span className="truncate">{project.name}</span>
               </span>
-              <span className="text-xs">{project.taskCount}</span>
             </Link>
           ))}
         </div>
       </div>
       <div className="mt-6 border-t border-border pt-4">
         <Link
-          href="/app/team/team-alpha/members"
+          href={team ? `/app/team/${team._id}/members` : "/app/my-tasks"}
           className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <UsersRound className="h-4 w-4" aria-hidden="true" />
           Members
         </Link>
         <Link
-          href="/app/team/team-alpha/settings"
+          href={team ? `/app/team/${team._id}/settings` : "/app/my-tasks"}
           className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <Settings className="h-4 w-4" aria-hidden="true" />

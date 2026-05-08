@@ -1,19 +1,23 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useMutation } from "convex/react";
 import { CheckCircle2, Circle, Clock3 } from "lucide-react";
+import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { DueDateBadge } from "@/components/tasks/due-date-badge";
 import { MemberAvatar } from "@/components/tasks/member-avatar";
 import { PriorityBadge } from "@/components/tasks/priority-badge";
 import { StatusChip } from "@/components/tasks/status-chip";
-import { currentUserId, deriveTaskStatus, type Task } from "@/lib/mock-data";
+import { currentUserId, deriveTaskStatus } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
-export function TaskRow({ task, index = 0 }: { task: Task; index?: number }) {
-  const myAssignment = task.assignments.find((assignment) => assignment.userId === currentUserId);
+export function TaskRow({ task, index = 0 }: { task: any; index?: number }) {
+  const updateStatus = useMutation(api.tasks.updateMyAssignmentStatus);
+  const myAssignment = task.assignments.find((assignment: any) => assignment.userId === currentUserId);
   const overall = deriveTaskStatus(task.assignments);
   const Icon = myAssignment?.status === "completed" ? CheckCircle2 : myAssignment?.status === "in_progress" ? Clock3 : Circle;
+  const nextStatus = myAssignment?.status === "todo" ? "in_progress" : myAssignment?.status === "in_progress" ? "completed" : "todo";
 
   return (
     <motion.article
@@ -27,6 +31,11 @@ export function TaskRow({ task, index = 0 }: { task: Task; index?: number }) {
           variant="ghost"
           size="icon"
           aria-label={myAssignment ? "Update my status" : "View task status"}
+          onClick={() => {
+            if (myAssignment) {
+              void updateStatus({ taskId: task._id, status: nextStatus });
+            }
+          }}
           className={cn("mt-0.5 shrink-0 rounded-full", myAssignment?.status === "completed" && "text-success")}
         >
           <Icon className="h-5 w-5" aria-hidden="true" />
@@ -44,13 +53,13 @@ export function TaskRow({ task, index = 0 }: { task: Task; index?: number }) {
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{task.projectName}</span>
+              <span className="font-semibold text-foreground">{task.project?.name ?? task.projectName}</span>
               <DueDateBadge date={task.dueDate} />
               <span>{task.assignments.length} assignees</span>
             </div>
             <div className="flex -space-x-2">
-              {task.assignments.map((assignment) => (
-                <MemberAvatar key={assignment.userId} userId={assignment.userId} />
+              {task.assignments.map((assignment: any) => (
+                <MemberAvatar key={assignment.userId} userId={assignment.userId} profile={assignment.profile} />
               ))}
             </div>
           </div>

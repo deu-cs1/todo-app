@@ -72,6 +72,17 @@ export const listProjectTasks = query({
   },
 });
 
+export const listProjectTasksDetailed = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found.");
+    await requireTeamMember(ctx, project.teamId);
+    const tasks = await ctx.db.query("tasks").withIndex("by_projectId", (q) => q.eq("projectId", args.projectId)).collect();
+    return Promise.all(tasks.map((task) => hydrateTask(ctx, task)));
+  },
+});
+
 export const listMyTasks = query({
   args: { teamId: v.optional(v.id("teams")) },
   handler: async (ctx, args) => {
@@ -83,6 +94,32 @@ export const listMyTasks = query({
           .collect()
       : await ctx.db.query("taskAssignments").withIndex("by_userId", (q) => q.eq("userId", user.userId)).collect();
     return Promise.all(assignments.map((assignment) => ctx.db.get(assignment.taskId)));
+  },
+});
+
+export const listMyTasksDetailed = query({
+  args: { teamId: v.optional(v.id("teams")) },
+  handler: async (ctx, args) => {
+    return listMyHydratedTasks(ctx, args.teamId);
+  },
+});
+
+export const listTodayTasks = query({
+  args: {},
+  handler: async (ctx) => {
+    const tasks = await listMyHydratedTasks(ctx);
+    const start = startOfToday();
+    const end = start + 24 * 60 * 60 * 1000;
+    return tasks.filter((task: any) => task.dueDate && task.dueDate >= start && task.dueDate < end);
+  },
+});
+
+export const listUpcomingTasks = query({
+  args: {},
+  handler: async (ctx) => {
+    const tasks = await listMyHydratedTasks(ctx);
+    const endOfToday = startOfToday() + 24 * 60 * 60 * 1000;
+    return tasks.filter((task: any) => task.dueDate && task.dueDate >= endOfToday);
   },
 });
 
@@ -143,3 +180,79 @@ export const archiveTask = mutation({
     await ctx.db.patch(args.taskId, { archivedAt: now(), updatedAt: now() });
   },
 });
+
+export const setTaskAssignees = mutation({
+  args: { taskId: v.id("tasks"), assigneeIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found.");
+    if (!(await canEditTask(ctx, task))) throw new Error("You cannot change assignees for this task.");
+    const user = await requireCurrentUser(ctx);
+    const uniqueAssigneeIds = [...new Set(args.assigneeIds)];
+
+    for (const assigneeId of uniqueAssigneeIds) {
+      const membership = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_teamId_and_userId", (q) => q.eq("teamId", task.teamId).eq("userId", assigneeId))
+        .unique();
+      if (!membership || membership.status !== "active") throw new Error("Every assignee must be an active team member.");
+    }
+
+    const existing = await ctx.db.query("taskAssignments").withIndex("by_taskId", (q) => q.eq("taskId", args.taskId)).collect();
+    const timestamp = now();
+
+    for (const assignment of existing) {
+      if (!uniqueAssigneeIds.includes(assignment.userId)) {
+        await ctx.db.delete(assignment._id);
+      }
+    }
+
+    for (const assigneeId of uniqueAssigneeIds) {
+      if (!existing.some((assignment) => assignment.userId === assigneeId)) {
+        await ctx.db.insert("taskAssignments", {
+          taskId: args.taskId,
+          teamId: task.teamId,
+          projectId: task.projectId,
+          userId: assigneeId,
+          assignedById: user.userId,
+          status: "todo",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+    }
+
+    await ctx.db.patch(args.taskId, { updatedAt: timestamp });
+  },
+});
+
+async function hydrateTask(ctx: any, task: any) {
+  const [project, assignments] = await Promise.all([
+    ctx.db.get(task.projectId),
+    ctx.db.query("taskAssignments").withIndex("by_taskId", (q: any) => q.eq("taskId", task._id)).collect(),
+  ]);
+  const hydratedAssignments = await Promise.all(
+    assignments.map(async (assignment: any) => {
+      const profile = await ctx.db.query("profiles").withIndex("by_userId", (q: any) => q.eq("userId", assignment.userId)).unique();
+      return { ...assignment, profile };
+    }),
+  );
+  return { ...task, project, assignments: hydratedAssignments };
+}
+
+async function listMyHydratedTasks(ctx: any, teamId?: any) {
+  const user = await requireCurrentUser(ctx);
+  const assignments = teamId
+    ? await ctx.db
+        .query("taskAssignments")
+        .withIndex("by_teamId_and_userId", (q: any) => q.eq("teamId", teamId).eq("userId", user.userId))
+        .collect()
+    : await ctx.db.query("taskAssignments").withIndex("by_userId", (q: any) => q.eq("userId", user.userId)).collect();
+  const tasks = await Promise.all(assignments.map((assignment: any) => ctx.db.get(assignment.taskId)));
+  return Promise.all(tasks.filter((task: any) => task !== null).map((task: any) => hydrateTask(ctx, task)));
+}
+
+function startOfToday() {
+  const date = new Date();
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}

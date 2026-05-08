@@ -34,7 +34,7 @@ export type Task = {
   }>;
 };
 
-export const currentUserId = "u1";
+export const currentUserId = "demo-user-ayse";
 
 export const members: Member[] = [
   { id: "u1", name: "Ayse Demir", email: "ayse@orbitask.app", role: "owner", initials: "AD" },
