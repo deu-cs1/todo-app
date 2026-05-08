@@ -1,7 +1,18 @@
 import Link from "next/link";
+import { type FormEventHandler } from "react";
 import { CircleDot } from "lucide-react";
 
-export function AuthCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+export function AuthCard({
+  title,
+  subtitle,
+  children,
+  onSubmit,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  onSubmit?: FormEventHandler<HTMLFormElement>;
+}) {
   return (
     <main className="flex min-h-dvh items-center justify-center px-5">
       <section className="w-full max-w-md rounded-2xl border border-border bg-surface p-8 shadow-soft">
@@ -15,7 +26,9 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
           <h1 className="text-3xl font-bold">{title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
         </div>
-        <form className="mt-8 flex flex-col gap-3">{children}</form>
+        <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-3">
+          {children}
+        </form>
       </section>
     </main>
   );

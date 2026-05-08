@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { type AssignmentStatus } from "@/lib/mock-data";
+import { type AssignmentStatus } from "@/lib/task-utils";
 
 const labels: Record<AssignmentStatus, string> = {
   todo: "Todo",

@@ -9,10 +9,11 @@ import { TaskList } from "@/components/tasks/task-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 
-export function ProjectView({ projectId }: { projectId: Id<"projects"> }) {
-  const workspace = useQuery(api.teams.getMyWorkspace);
+export function ProjectView({ teamId, projectId }: { teamId: Id<"teams">; projectId: Id<"projects"> }) {
+  const workspace = useQuery(api.teams.getWorkspaceByTeamId, { teamId });
   const project = workspace?.projects.find((item) => item._id === projectId);
   const tasks = useQuery(api.tasks.listProjectTasksDetailed, project ? { projectId } : "skip");
+  const currentMembership = workspace?.members.find((member) => member.userId === workspace.user.userId);
 
   if (workspace === undefined) {
     return (
@@ -34,7 +35,7 @@ export function ProjectView({ projectId }: { projectId: Id<"projects"> }) {
     <AppShell title={project.name} eyebrow={workspace.team.name}>
       <div className="space-y-6">
         <TaskCreateInput teamId={workspace?.team?._id} projectId={projectId} assigneeIds={workspace?.members.map((member) => member.userId)} />
-        {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} />}
+        {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />}
       </div>
     </AppShell>
   );

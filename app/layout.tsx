@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/providers/convex-provider";
 import "./globals.css";
@@ -18,7 +19,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body className={`${jakarta.variable} font-sans antialiased`} suppressHydrationWarning>
-        <Providers>{children}</Providers>
+        <ConvexAuthNextjsServerProvider>
+          <Providers>{children}</Providers>
+        </ConvexAuthNextjsServerProvider>
       </body>
     </html>
   );

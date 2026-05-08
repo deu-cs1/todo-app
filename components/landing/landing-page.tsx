@@ -77,16 +77,16 @@ export function LandingPage() {
               <div className="rounded-xl border border-border bg-[#fbfaf8]">
                 <div className="flex items-center justify-between border-b border-border p-4">
                   <div>
-                    <p className="text-sm font-semibold">Website Launch</p>
-                    <p className="text-xs text-muted-foreground">3 people assigned</p>
+                    <p className="text-sm font-semibold">Shared launch task</p>
+                    <p className="text-xs text-muted-foreground">3 assignees with separate status</p>
                   </div>
                   <Badge className="border-amber-200 bg-amber-50 text-amber-700">Doing</Badge>
                 </div>
                 <div className="space-y-3 p-4">
                   {[
-                    ["Ayse Demir", "Done", "bg-emerald-50 text-emerald-700 border-emerald-200"],
-                    ["Mehmet Kaya", "Doing", "bg-amber-50 text-amber-700 border-amber-200"],
-                    ["Zeynep Arslan", "Todo", "bg-slate-50 text-slate-600 border-slate-200"],
+                    ["Design", "Done", "bg-emerald-50 text-emerald-700 border-emerald-200"],
+                    ["Engineering", "Doing", "bg-amber-50 text-amber-700 border-amber-200"],
+                    ["Operations", "Todo", "bg-slate-50 text-slate-600 border-slate-200"],
                   ].map(([name, status, className], index) => (
                     <motion.div
                       key={name}

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-export const priority = v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent"));
+export const priority = v.union(v.literal("low"), v.literal("medium"), v.literal("high"));
 export const assignmentStatus = v.union(v.literal("todo"), v.literal("in_progress"), v.literal("completed"));
 export const teamRole = v.union(v.literal("owner"), v.literal("admin"), v.literal("member"));
 export const inviteRole = v.union(v.literal("admin"), v.literal("member"));

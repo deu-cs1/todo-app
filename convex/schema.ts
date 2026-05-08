@@ -1,7 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  ...authTables,
+
   profiles: defineTable({
     userId: v.string(),
     name: v.string(),
@@ -16,6 +19,7 @@ export default defineSchema({
   teams: defineTable({
     name: v.string(),
     slug: v.string(),
+    kind: v.optional(v.union(v.literal("personal"), v.literal("team"))),
     ownerId: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -86,7 +90,7 @@ export default defineSchema({
     description: v.optional(v.string()),
     createdById: v.string(),
     dueDate: v.optional(v.number()),
-    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent")),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),

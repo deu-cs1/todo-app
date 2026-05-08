@@ -8,7 +8,9 @@
  * @module
  */
 
-import type * as demo from "../demo.js";
+import type * as auth from "../auth.js";
+import type * as dev from "../dev.js";
+import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_time from "../lib/time.js";
@@ -25,7 +27,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  demo: typeof demo;
+  auth: typeof auth;
+  dev: typeof dev;
+  http: typeof http;
   invites: typeof invites;
   "lib/authz": typeof lib_authz;
   "lib/time": typeof lib_time;

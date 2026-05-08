@@ -9,7 +9,7 @@ Todoist-inspired team task management MVP with multi-assignee tasks and independ
 - Tailwind CSS
 - Framer Motion
 - Radix Dialog primitives
-- Convex schema and function scaffold
+- Convex database and Convex Auth
 
 ## Run
 
@@ -29,6 +29,7 @@ Open `http://localhost:3000`.
 - My Tasks, Today, Upcoming, Team, Project, Members, Settings, and Invite routes
 - Reusable task/member UI components
 - Convex schema plus authorization-minded query/mutation scaffolding
+- Password-based sign-up/sign-in via Convex Auth
 
 This project is currently configured for a local anonymous Convex deployment:
 
@@ -36,16 +37,10 @@ This project is currently configured for a local anonymous Convex deployment:
 - Local dashboard: `http://127.0.0.1:6790`
 - Cloud dashboard: not connected unless you link the app to a Convex account/project
 
-The app does not seed demo data automatically. If you want sample data locally, seed it manually:
+The app does not seed demo data automatically. To clear the local development database:
 
 ```bash
-npx convex run demo:seedDemoData
-```
-
-To clear the local development database:
-
-```bash
-npx convex run demo:clearAllData
+npx convex run dev:clearAllData
 ```
 
 ## Convex Cloud Dashboard

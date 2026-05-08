@@ -181,6 +181,20 @@ export const archiveTask = mutation({
   },
 });
 
+export const deleteTask = mutation({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found.");
+    const { membership } = await requireTeamMember(ctx, task.teamId);
+    if (membership.role !== "owner") throw new Error("Only the team owner can delete tasks.");
+
+    const assignments = await ctx.db.query("taskAssignments").withIndex("by_taskId", (q) => q.eq("taskId", args.taskId)).collect();
+    await Promise.all(assignments.map((assignment) => ctx.db.delete(assignment._id)));
+    await ctx.db.delete(args.taskId);
+  },
+});
+
 export const setTaskAssignees = mutation({
   args: { taskId: v.id("tasks"), assigneeIds: v.array(v.string()) },
   handler: async (ctx, args) => {

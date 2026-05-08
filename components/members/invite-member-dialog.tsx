@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useMutation } from "convex/react";
-import { LinkIcon, X } from "lucide-react";
+import { Send, X } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -11,14 +11,26 @@ import { Button } from "@/components/ui/button";
 export function InviteMemberDialog({ teamId }: { teamId?: Id<"teams"> }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"member" | "admin">("member");
-  const [token, setToken] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const createInvite = useMutation(api.invites.createTeamInvite);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!teamId || !email.trim()) return;
-    const result = await createInvite({ teamId, email: email.trim(), role });
-    setToken(result.token);
+    setIsSubmitting(true);
+    setError(null);
+    setStatus(null);
+    try {
+      await createInvite({ teamId, email: email.trim(), role });
+      setStatus("Invite created. It will appear in this user's Teams tab.");
+      setEmail("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create invite.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -38,7 +50,7 @@ export function InviteMemberDialog({ teamId }: { teamId?: Id<"teams"> }) {
             </Dialog.Close>
           </div>
           <Dialog.Description className="mt-2 text-sm leading-6 text-muted-foreground">
-            Create a pending invite. The production mutation stores only a hashed invite token.
+            Invite by email. Existing users will see who invited them and which team they can join from the Teams tab.
           </Dialog.Description>
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
             <label className="block text-sm font-semibold">
@@ -52,11 +64,12 @@ export function InviteMemberDialog({ teamId }: { teamId?: Id<"teams"> }) {
                 <option value="admin">admin</option>
               </select>
             </label>
-            <Button disabled={!teamId || !email.trim()} className="w-full">
-              <LinkIcon className="h-4 w-4" aria-hidden="true" />
-              Generate invite link
+            <Button disabled={!teamId || !email.trim() || isSubmitting} className="w-full">
+              <Send className="h-4 w-4" aria-hidden="true" />
+              {isSubmitting ? "Creating invite" : "Invite by email"}
             </Button>
-            {token && <p className="rounded-lg bg-muted p-3 text-xs font-medium text-muted-foreground">/invite/{token}</p>}
+            {status && <p className="rounded-lg bg-muted p-3 text-xs font-medium text-muted-foreground">{status}</p>}
+            {error && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700">{error}</p>}
           </form>
         </Dialog.Content>
       </Dialog.Portal>

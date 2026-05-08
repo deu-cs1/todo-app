@@ -15,6 +15,7 @@ export function MyTasksView() {
   const tasks = useQuery(api.tasks.listMyTasksDetailed, workspace?.team ? { teamId: workspace.team._id } : "skip");
   const defaultProject = workspace?.projects[0];
   const assigneeIds = workspace?.members.map((member) => member.userId);
+  const currentMembership = workspace?.members.find((member) => member.userId === workspace.user.userId);
 
   if (workspace === undefined) {
     return (
@@ -27,7 +28,7 @@ export function MyTasksView() {
   if (workspace === null) {
     return (
       <AppShell active="My Tasks" title="My Tasks" eyebrow="Workspace" action={<Button className="hidden sm:inline-flex">New task</Button>}>
-        <EmptyState title="No workspace yet" description="Create a team before adding personal or shared tasks." />
+        <EmptyState title="Workspace is not ready" description="Sign out and sign back in to prepare your personal workspace." />
       </AppShell>
     );
   }
@@ -43,9 +44,9 @@ export function MyTasksView() {
             <div className="grid gap-4 md:grid-cols-3">
               <Metric label="Assigned to me" value={tasks.length} />
               <Metric label="Due today" value={tasks.filter((task) => task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString()).length} />
-              <Metric label="In progress" value={tasks.filter((task) => task.assignments.some((assignment: any) => assignment.userId === "demo-user-ayse" && assignment.status === "in_progress")).length} />
+              <Metric label="In progress" value={tasks.filter((task) => task.assignments.some((assignment: any) => assignment.userId === workspace.user.userId && assignment.status === "in_progress")).length} />
             </div>
-            <TaskList tasks={tasks} />
+            <TaskList tasks={tasks} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />
             {tasks[0] && <TaskDetailDrawer task={tasks[0]} />}
           </>
         )}

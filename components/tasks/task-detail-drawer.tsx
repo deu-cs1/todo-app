@@ -5,7 +5,6 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PriorityBadge } from "@/components/tasks/priority-badge";
 import { StatusChip } from "@/components/tasks/status-chip";
-import { getMember } from "@/lib/mock-data";
 
 export function TaskDetailDrawer({ task }: { task: any }) {
   return (
@@ -32,13 +31,12 @@ export function TaskDetailDrawer({ task }: { task: any }) {
           <div className="mt-8 space-y-3">
             <h3 className="text-sm font-bold">Assignment statuses</h3>
             {task.assignments.map((assignment: any) => {
-              const member = getMember(assignment.userId);
               const profile = assignment.profile;
               return (
                 <div key={assignment.userId} className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="font-semibold">{profile?.name ?? member?.name ?? "Unknown member"}</p>
-                    <p className="text-sm text-muted-foreground">{profile?.email ?? member?.email}</p>
+                    <p className="font-semibold">{profile?.name ?? profile?.email ?? "Unknown member"}</p>
+                    {profile?.email && <p className="text-sm text-muted-foreground">{profile.email}</p>}
                   </div>
                   <StatusChip status={assignment.status} />
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQuery } from "convex/react";
 import { CalendarDays, CircleDot, Inbox, LayoutList, Settings, UsersRound } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -10,9 +11,14 @@ const navItems = [
   { href: "/app/my-tasks", label: "My Tasks", icon: Inbox },
   { href: "/app/today", label: "Today", icon: CalendarDays },
   { href: "/app/upcoming", label: "Upcoming", icon: LayoutList },
+  { href: "/app/teams", label: "Teams", icon: UsersRound },
 ];
 
 export function Sidebar({ active = "My Tasks" }: { active?: string }) {
+  const pathname = usePathname();
+  const activeItem =
+    navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.label ??
+    (pathname.includes("/members") ? "Members" : pathname.includes("/settings") ? "Settings" : pathname.includes("/team/") ? "Teams" : active);
   const workspace = useQuery(api.teams.getMyWorkspace);
   const team = workspace?.team;
   const projects = workspace?.projects ?? [];
@@ -33,7 +39,7 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
             href={item.href}
             className={cn(
               "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground",
-              active === item.label && "bg-red-50 text-red-700",
+              activeItem === item.label && "bg-red-50 text-red-700",
             )}
           >
             <item.icon className="h-4 w-4" aria-hidden="true" />
@@ -42,10 +48,10 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
         ))}
       </nav>
       <div className="mt-8">
-        <p className="px-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Teams</p>
+        <p className="px-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Workspace</p>
         <div className="mt-3 rounded-xl border border-border bg-background p-3">
-          <p className="text-sm font-bold">{team?.name ?? "Preparing workspace"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{members.length || "..."} members</p>
+          <p className="text-sm font-bold">{workspace === undefined ? "Loading workspace" : team?.name ?? "No workspace"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{team ? `${members.length} member personal space` : "Preparing personal workspace"}</p>
         </div>
       </div>
       <div className="mt-6">
@@ -67,15 +73,11 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
       </div>
       <div className="mt-6 border-t border-border pt-4">
         <Link
-          href={team ? `/app/team/${team._id}/members` : "/app/my-tasks"}
-          className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        >
-          <UsersRound className="h-4 w-4" aria-hidden="true" />
-          Members
-        </Link>
-        <Link
           href={team ? `/app/team/${team._id}/settings` : "/app/my-tasks"}
-          className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          className={cn(
+            "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground",
+            activeItem === "Settings" && "bg-red-50 text-red-700",
+          )}
         >
           <Settings className="h-4 w-4" aria-hidden="true" />
           Settings

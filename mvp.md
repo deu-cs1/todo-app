@@ -107,7 +107,7 @@ Design principles:
      - project
      - optional section
      - due date
-     - priority: `low`, `medium`, `high`, `urgent`
+     - priority: `low`, `medium`, `high`
      - createdBy
      - createdAt
      - updatedAt
@@ -309,7 +309,7 @@ Fields:
 - `description`: optional string
 - `createdById`: user id
 - `dueDate`: optional number
-- `priority`: `low` | `medium` | `high` | `urgent`
+- `priority`: `low` | `medium` | `high`
 - `archivedAt`: optional number
 - `createdAt`: number
 - `updatedAt`: number

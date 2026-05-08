@@ -6,16 +6,19 @@ type Ctx = QueryCtx | MutationCtx;
 export async function requireCurrentUser(ctx: Ctx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    return {
-      userId: "demo-user-ayse",
-      email: "ayse@orbitask.local",
-      name: "Ayse Demir",
-    };
+    throw new Error("Authentication required.");
   }
+  const userId = identity.subject as Id<"users">;
+  const authUser = await ctx.db.get(userId);
+  const passwordAccount = await ctx.db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", "password"))
+    .first();
+  const email = identity.email?.trim() || authUser?.email?.trim() || passwordAccount?.providerAccountId.trim() || "";
   return {
     userId: identity.subject,
-    email: identity.email ?? "",
-    name: identity.name ?? identity.email ?? "Unknown user",
+    email,
+    name: identity.name?.trim() || authUser?.name?.trim() || email || "Unknown user",
   };
 }
 

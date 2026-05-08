@@ -1,8 +1,5 @@
-import { getMember } from "@/lib/mock-data";
-
 export function MemberAvatar({ userId, profile }: { userId: string; profile?: { name?: string; email?: string } | null }) {
-  const member = getMember(userId);
-  const name = profile?.name ?? member?.name ?? "Unknown user";
+  const name = profile?.name ?? profile?.email ?? "Unknown user";
   const initials =
     name
       .split(" ")

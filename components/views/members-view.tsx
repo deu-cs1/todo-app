@@ -10,9 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingState } from "@/components/ui/loading-state";
 
 export function MembersView({ teamId }: { teamId: Id<"teams"> }) {
-  const workspace = useQuery(api.teams.getMyWorkspace);
-  const canViewTeam = workspace?.team?._id === teamId;
-  const members = useQuery(api.teams.listTeamMembers, canViewTeam ? { teamId } : "skip");
+  const workspace = useQuery(api.teams.getWorkspaceByTeamId, { teamId });
+  const members = useQuery(api.teams.listTeamMembers, workspace ? { teamId } : "skip");
 
   if (workspace === undefined) {
     return (
@@ -22,7 +21,7 @@ export function MembersView({ teamId }: { teamId: Id<"teams"> }) {
     );
   }
 
-  if (workspace === null || !canViewTeam) {
+  if (workspace === null) {
     return (
       <AppShell title="Members" eyebrow="Team">
         <EmptyState title="No accessible team" description="Create or select a team before managing members." />
