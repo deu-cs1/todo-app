@@ -33,6 +33,11 @@ async function getTeamByMembership(ctx: any, membership: { teamId: any }) {
   }
 }
 
+async function hydrateMember(ctx: any, membership: any) {
+  const profile = await ctx.db.query("profiles").withIndex("by_userId", (q: any) => q.eq("userId", membership.userId)).unique();
+  return { ...membership, profile };
+}
+
 export const createTeam = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
@@ -71,11 +76,20 @@ export const ensurePersonalWorkspace = mutation({
       }
     }
 
-    const workspaceName = `${name.split(" ")[0]}'s Personal Workspace`;
+    const workspaceName = `${name}'s workspace`;
     const teamId = await ctx.db.insert("teams", { name: workspaceName, slug: slugify(`personal-${user.userId}`, timestamp), kind: "personal", ownerId: user.userId, createdAt: timestamp, updatedAt: timestamp });
     await ctx.db.insert("teamMembers", { teamId, userId: user.userId, role: "owner", status: "active", joinedAt: timestamp });
     await createDefaultProject(ctx, teamId, user.userId, "Personal");
     return teamId;
+  },
+});
+
+export const renameWorkspace = mutation({
+  args: { teamId: v.id("teams"), name: v.string() },
+  handler: async (ctx, args) => {
+    await requireTeamAdminOrOwner(ctx, args.teamId);
+    const name = assertLength(args.name.trim(), 2, 60, "Workspace name");
+    await ctx.db.patch(args.teamId, { name, updatedAt: now() });
   },
 });
 
@@ -108,7 +122,8 @@ export const getMyWorkspace = query({
     const team = personalEntry?.team ?? teamEntries[0]?.team;
     if (!activeMembership || !team) return null;
     const projects = await ctx.db.query("projects").withIndex("by_teamId", (q) => q.eq("teamId", team._id)).collect();
-    const members = await ctx.db.query("teamMembers").withIndex("by_teamId_and_status", (q) => q.eq("teamId", team._id).eq("status", "active")).collect();
+    const teamMemberships = await ctx.db.query("teamMembers").withIndex("by_teamId_and_status", (q) => q.eq("teamId", team._id).eq("status", "active")).collect();
+    const members = await Promise.all(teamMemberships.map((membership) => hydrateMember(ctx, membership)));
     return { user, team, projects, members };
   },
 });
@@ -116,11 +131,18 @@ export const getMyWorkspace = query({
 export const getWorkspaceByTeamId = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
-    const { user } = await requireTeamMember(ctx, args.teamId);
+    const user = await requireCurrentUser(ctx);
+    const activeMembership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_teamId_and_userId", (q) => q.eq("teamId", args.teamId).eq("userId", user.userId))
+      .unique();
+    if (!activeMembership || activeMembership.status !== "active") return null;
+
     const team = await ctx.db.get(args.teamId);
     if (!team) return null;
     const projects = await ctx.db.query("projects").withIndex("by_teamId", (q) => q.eq("teamId", team._id)).collect();
-    const members = await ctx.db.query("teamMembers").withIndex("by_teamId_and_status", (q) => q.eq("teamId", team._id).eq("status", "active")).collect();
+    const memberships = await ctx.db.query("teamMembers").withIndex("by_teamId_and_status", (q) => q.eq("teamId", team._id).eq("status", "active")).collect();
+    const members = await Promise.all(memberships.map((membership) => hydrateMember(ctx, membership)));
     return { user, team, projects, members };
   },
 });
@@ -144,8 +166,7 @@ export const listTeamMembers = query({
 
     return Promise.all(
       memberships.map(async (membership) => {
-        const profile = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", membership.userId)).unique();
-        return { ...membership, profile };
+        return hydrateMember(ctx, membership);
       }),
     );
   },
@@ -168,7 +189,8 @@ export const changeMemberRole = mutation({
 export const removeTeamMember = mutation({
   args: { teamId: v.id("teams"), userId: v.string() },
   handler: async (ctx, args) => {
-    const { user } = await requireTeamAdminOrOwner(ctx, args.teamId);
+    const { user, membership: currentMembership } = await requireTeamMember(ctx, args.teamId);
+    if (currentMembership.role !== "owner") throw new Error("Only the team owner can remove members.");
     if (user.userId === args.userId) throw new Error("Owners/admins cannot remove themselves.");
     const membership = await ctx.db
       .query("teamMembers")

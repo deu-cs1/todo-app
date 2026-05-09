@@ -31,7 +31,7 @@ const statusPulse: Record<AssignmentStatus, string> = {
   completed: "bg-success",
 };
 
-const deleteAnimationMs = 650;
+const deleteAnimationMs = 450;
 
 export function TaskRow({
   task,

@@ -31,9 +31,9 @@ export function TodayView() {
   }
 
   return (
-    <AppShell active="Today" title="Today" eyebrow="Personal focus">
+    <AppShell active="Today" title="Today" workspace={{ id: workspace.team._id, name: workspace.team.name, canRename: currentMembership?.role === "owner" || currentMembership?.role === "admin" }}>
       <div className="space-y-6">
-        <TaskCreateInput teamId={workspace.team._id} projectId={defaultProject?._id} assigneeIds={[workspace.user.userId]} />
+        <TaskCreateInput teamId={workspace.team._id} projectId={defaultProject?._id} assignees={workspace.members} defaultAssigneeIds={[workspace.user.userId]} />
         {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />}
       </div>
     </AppShell>

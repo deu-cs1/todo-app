@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { canEditTask, requireCanViewTask, requireCurrentUser, requireTeamMember } from "./lib/authz";
 import { now } from "./lib/time";
 import { assertLength, assignmentStatus, priority } from "./lib/validators";
+import { createNotification, getProfileName } from "./lib/notifications";
 
 export const createTask = mutation({
   args: {
@@ -54,6 +55,21 @@ export const createTask = mutation({
           status: "todo",
           createdAt: timestamp,
           updatedAt: timestamp,
+        }),
+      ),
+    );
+
+    const creatorName = await getProfileName(ctx, user.userId, "A teammate");
+    await Promise.all(
+      uniqueAssignees.map((assigneeId) =>
+        createNotification(ctx, {
+          userId: assigneeId,
+          teamId: args.teamId,
+          taskId,
+          type: "task_created",
+          title: "New task assigned",
+          body: `${creatorName} added "${args.title}" and assigned it to you.`,
+          createdAt: timestamp,
         }),
       ),
     );
@@ -136,16 +152,38 @@ export const updateMyAssignmentStatus = mutation({
   args: { taskId: v.id("tasks"), status: assignmentStatus },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
+    const timestamp = now();
     const assignment = await ctx.db
       .query("taskAssignments")
       .withIndex("by_taskId_and_userId", (q) => q.eq("taskId", args.taskId).eq("userId", user.userId))
       .unique();
     if (!assignment) throw new Error("Only an assigned user can update their own assignment status.");
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found.");
     await ctx.db.patch(assignment._id, {
       status: args.status,
-      updatedAt: now(),
-      completedAt: args.status === "completed" ? now() : undefined,
+      updatedAt: timestamp,
+      completedAt: args.status === "completed" ? timestamp : undefined,
     });
+
+    const statusLabel = args.status === "in_progress" ? "doing" : args.status === "completed" ? "done" : "todo";
+    const actorName = await getProfileName(ctx, user.userId, "A teammate");
+    const taskAssignments = await ctx.db.query("taskAssignments").withIndex("by_taskId", (q) => q.eq("taskId", args.taskId)).collect();
+    const recipientIds = new Set<string>([task.createdById, ...taskAssignments.map((item) => item.userId)]);
+    recipientIds.delete(user.userId);
+    await Promise.all(
+      [...recipientIds].map((userId) =>
+        createNotification(ctx, {
+          userId,
+          teamId: task.teamId,
+          taskId: args.taskId,
+          type: "status_changed",
+          title: "Task status updated",
+          body: `${actorName} changed "${task.title}" to ${statusLabel}.`,
+          createdAt: timestamp,
+        }),
+      ),
+    );
   },
 });
 
@@ -232,6 +270,15 @@ export const setTaskAssignees = mutation({
           status: "todo",
           createdAt: timestamp,
           updatedAt: timestamp,
+        });
+        await createNotification(ctx, {
+          userId: assigneeId,
+          teamId: task.teamId,
+          taskId: args.taskId,
+          type: "task_created",
+          title: "New task assigned",
+          body: `${await getProfileName(ctx, user.userId, "A teammate")} assigned "${task.title}" to you.`,
+          createdAt: timestamp,
         });
       }
     }

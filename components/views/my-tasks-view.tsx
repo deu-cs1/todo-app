@@ -14,7 +14,6 @@ export function MyTasksView() {
   const workspace = useQuery(api.teams.getMyWorkspace);
   const tasks = useQuery(api.tasks.listMyTasksDetailed, workspace?.team ? { teamId: workspace.team._id } : "skip");
   const defaultProject = workspace?.projects[0];
-  const assigneeIds = workspace?.members.map((member) => member.userId);
   const currentMembership = workspace?.members.find((member) => member.userId === workspace.user.userId);
 
   if (workspace === undefined) {
@@ -34,9 +33,14 @@ export function MyTasksView() {
   }
 
   return (
-    <AppShell active="My Tasks" title="My Tasks" eyebrow={workspace.team.name} action={<Button className="hidden sm:inline-flex">New task</Button>}>
+    <AppShell
+      active="My Tasks"
+      title="My Tasks"
+      workspace={{ id: workspace.team._id, name: workspace.team.name, canRename: currentMembership?.role === "owner" || currentMembership?.role === "admin" }}
+      action={<Button className="hidden sm:inline-flex">New task</Button>}
+    >
       <div className="space-y-6">
-        <TaskCreateInput teamId={workspace.team._id} projectId={defaultProject?._id} assigneeIds={assigneeIds} />
+        <TaskCreateInput teamId={workspace.team._id} projectId={defaultProject?._id} assignees={workspace.members} defaultAssigneeIds={[workspace.user.userId]} />
         {tasks === undefined ? (
           <LoadingState />
         ) : (

@@ -3,23 +3,50 @@ import { v } from "convex/values";
 import { requireCurrentUser, requireTeamAdminOrOwner, requireTeamMember } from "./lib/authz";
 import { now, sevenDaysMs } from "./lib/time";
 import { inviteRole } from "./lib/validators";
+import { createNotification, getProfileName } from "./lib/notifications";
 
 async function hashToken(token: string) {
   return token;
 }
 
-async function getCurrentProfileEmail(ctx: any, user: { userId: string; email: string }) {
+function normalizeEmail(email: string) {
+  return email.toLowerCase().trim();
+}
+
+async function getCurrentEmails(ctx: any, user: { userId: string; email: string }) {
   const profile = await ctx.db.query("profiles").withIndex("by_userId", (q: any) => q.eq("userId", user.userId)).unique();
-  return (profile?.email ?? user.email).toLowerCase().trim();
+  return [profile?.email, user.email]
+    .map((email) => normalizeEmail(email ?? ""))
+    .filter((email, index, emails) => email && emails.indexOf(email) === index);
+}
+
+async function findProfileByEmail(ctx: any, email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  const exactProfile = await ctx.db.query("profiles").withIndex("by_email", (q: any) => q.eq("email", normalizedEmail)).unique();
+  if (exactProfile) return exactProfile;
+
+  const profiles = await ctx.db.query("profiles").collect();
+  return profiles.find((profile: { email: string }) => normalizeEmail(profile.email) === normalizedEmail) ?? null;
+}
+
+async function listInvitesByEmail(ctx: any, email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  const exactInvites = await ctx.db.query("teamInvites").withIndex("by_email", (q: any) => q.eq("email", normalizedEmail)).collect();
+  const allInvites = await ctx.db.query("teamInvites").collect();
+  const normalizedMatches = allInvites.filter((invite: { email: string }) => normalizeEmail(invite.email) === normalizedEmail);
+  const inviteIds = new Set(exactInvites.map((invite: { _id: string }) => invite._id));
+
+  return [...exactInvites, ...normalizedMatches.filter((invite: { _id: string }) => !inviteIds.has(invite._id))];
 }
 
 export const createTeamInvite = mutation({
   args: { teamId: v.id("teams"), email: v.string(), role: inviteRole },
   handler: async (ctx, args) => {
     const { user } = await requireTeamAdminOrOwner(ctx, args.teamId);
-    const email = args.email.toLowerCase().trim();
-    const invitedProfile = await ctx.db.query("profiles").withIndex("by_email", (q) => q.eq("email", email)).unique();
+    const email = normalizeEmail(args.email);
+    const invitedProfile = await findProfileByEmail(ctx, email);
     if (!invitedProfile) throw new Error("No account exists for this email yet.");
+    const team = await ctx.db.get(args.teamId);
 
     const existingMembership = await ctx.db
       .query("teamMembers")
@@ -38,6 +65,14 @@ export const createTeamInvite = mutation({
         createdAt: timestamp,
         expiresAt: timestamp + sevenDaysMs,
       });
+      await createNotification(ctx, {
+        userId: invitedProfile.userId,
+        teamId: args.teamId,
+        type: "team_invite",
+        title: "Team invite updated",
+        body: `${await getProfileName(ctx, user.userId, "A team admin")} updated your invite to join ${team?.name ?? "a team"} as ${args.role}.`,
+        createdAt: timestamp,
+      });
       return { ok: true };
     }
 
@@ -50,6 +85,14 @@ export const createTeamInvite = mutation({
       invitedById: user.userId,
       createdAt: timestamp,
       expiresAt: timestamp + sevenDaysMs,
+    });
+    await createNotification(ctx, {
+      userId: invitedProfile.userId,
+      teamId: args.teamId,
+      type: "team_invite",
+      title: "New team invite",
+      body: `${await getProfileName(ctx, user.userId, "A team admin")} invited you to join ${team?.name ?? "a team"} as ${args.role}.`,
+      createdAt: timestamp,
     });
     return { ok: true };
   },
@@ -67,10 +110,16 @@ export const listMyPendingInvites = query({
   args: {},
   handler: async (ctx) => {
     const user = await requireCurrentUser(ctx);
-    const email = await getCurrentProfileEmail(ctx, user);
-    if (!email) return [];
+    const emails = await getCurrentEmails(ctx, user);
+    if (emails.length === 0) return [];
 
-    const invites = await ctx.db.query("teamInvites").withIndex("by_email", (q) => q.eq("email", email)).collect();
+    const invitesByEmail = await Promise.all(emails.map((email) => listInvitesByEmail(ctx, email)));
+    const inviteIds = new Set<string>();
+    const invites = invitesByEmail.flat().filter((invite: { _id: string }) => {
+      if (inviteIds.has(invite._id)) return false;
+      inviteIds.add(invite._id);
+      return true;
+    });
     const timestamp = now();
 
     return Promise.all(
@@ -97,11 +146,11 @@ export const acceptInvite = mutation({
   args: { inviteId: v.id("teamInvites") },
   handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
-    const email = await getCurrentProfileEmail(ctx, user);
+    const emails = await getCurrentEmails(ctx, user);
     const invite = await ctx.db.get(args.inviteId);
     if (!invite || invite.status !== "pending") throw new Error("Invite is not available.");
     if (invite.expiresAt < now()) throw new Error("Invite has expired.");
-    if (invite.email !== email) throw new Error("Invite email does not match your account.");
+    if (!emails.includes(normalizeEmail(invite.email))) throw new Error("Invite email does not match your account.");
     const timestamp = now();
     const existingMembership = await ctx.db
       .query("teamMembers")

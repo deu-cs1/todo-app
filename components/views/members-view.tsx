@@ -12,6 +12,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 export function MembersView({ teamId }: { teamId: Id<"teams"> }) {
   const workspace = useQuery(api.teams.getWorkspaceByTeamId, { teamId });
   const members = useQuery(api.teams.listTeamMembers, workspace ? { teamId } : "skip");
+  const currentMembership = workspace?.members.find((member) => member.userId === workspace.user.userId);
 
   if (workspace === undefined) {
     return (
@@ -30,8 +31,8 @@ export function MembersView({ teamId }: { teamId: Id<"teams"> }) {
   }
 
   return (
-    <AppShell title="Members" eyebrow={workspace.team.name} action={<InviteMemberDialog teamId={teamId} />}>
-      {members === undefined ? <LoadingState /> : <MemberList members={members} />}
+    <AppShell title="Members" workspace={{ id: workspace.team._id, name: workspace.team.name, canRename: currentMembership?.role === "owner" || currentMembership?.role === "admin" }} action={<InviteMemberDialog teamId={teamId} />}>
+      {members === undefined ? <LoadingState /> : <MemberList members={members} teamId={teamId} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />}
     </AppShell>
   );
 }

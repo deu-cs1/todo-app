@@ -10,6 +10,7 @@ export default defineSchema({
     name: v.string(),
     email: v.string(),
     avatarUrl: v.optional(v.string()),
+    experimentalFeaturesEnabled: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -118,4 +119,18 @@ export default defineSchema({
     .index("by_projectId_and_userId", ["projectId", "userId"])
     .index("by_taskId_and_userId", ["taskId", "userId"])
     .index("by_status", ["status"]),
+
+  notifications: defineTable({
+    userId: v.string(),
+    teamId: v.optional(v.id("teams")),
+    taskId: v.optional(v.id("tasks")),
+    type: v.union(v.literal("task_created"), v.literal("team_invite"), v.literal("status_changed")),
+    title: v.string(),
+    body: v.string(),
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_readAt", ["userId", "readAt"])
+    .index("by_userId_and_createdAt", ["userId", "createdAt"]),
 });

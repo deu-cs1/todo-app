@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import { CalendarDays, Flag, Plus, UserRoundPlus } from "lucide-react";
+import { CalendarDays, Check, Flag, Plus, UserRoundPlus } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -15,20 +15,50 @@ const priorityOptions: Array<{ value: Priority; label: string }> = [
   { value: "high", label: "High" },
 ];
 
+type AssigneeOption = {
+  userId: string;
+  profile?: {
+    name?: string;
+    email?: string;
+  } | null;
+};
+
 export function TaskCreateInput({
   teamId,
   projectId,
-  assigneeIds,
+  assignees,
+  defaultAssigneeIds = [],
 }: {
   teamId?: Id<"teams">;
   projectId?: Id<"projects">;
-  assigneeIds?: string[];
+  assignees?: AssigneeOption[];
+  defaultAssigneeIds?: string[];
 }) {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>(defaultAssigneeIds);
+  const [isAssigneePickerOpen, setIsAssigneePickerOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const assigneePickerRef = useRef<HTMLDivElement>(null);
   const createTask = useMutation(api.tasks.createTask);
+
+  useEffect(() => {
+    setSelectedAssigneeIds((current) => current.filter((userId) => assignees?.some((assignee) => assignee.userId === userId)));
+  }, [assignees]);
+
+  useEffect(() => {
+    if (!isAssigneePickerOpen) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!assigneePickerRef.current?.contains(event.target as Node)) {
+        setIsAssigneePickerOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [isAssigneePickerOpen]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,15 +71,23 @@ export function TaskCreateInput({
         title: title.trim(),
         dueDate: dueDate ? dateInputToTimestamp(dueDate) : undefined,
         priority,
-        assigneeIds: assigneeIds ?? [],
+        assigneeIds: selectedAssigneeIds,
       });
       setTitle("");
       setDueDate("");
       setPriority("medium");
+      setSelectedAssigneeIds(defaultAssigneeIds.filter((userId) => assignees?.some((assignee) => assignee.userId === userId)));
+      setIsAssigneePickerOpen(false);
     } finally {
       setIsSaving(false);
     }
   }
+
+  function toggleAssignee(userId: string) {
+    setSelectedAssigneeIds((current) => (current.includes(userId) ? current.filter((item) => item !== userId) : [...current, userId]));
+  }
+
+  const selectedAssignees = assignees?.filter((assignee) => selectedAssigneeIds.includes(assignee.userId)) ?? [];
 
   return (
     <form onSubmit={onSubmit} className="rounded-xl border border-border/80 bg-surface/70 p-2 transition focus-within:border-foreground/25 focus-within:bg-surface">
@@ -101,10 +139,51 @@ export function TaskCreateInput({
               ))}
             </div>
           </div>
-          <Button type="button" variant="ghost" size="sm" className="justify-start text-muted-foreground sm:justify-center">
-            <UserRoundPlus className="h-4 w-4" aria-hidden="true" />
-            Assignees
-          </Button>
+          <div ref={assigneePickerRef} className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={cn("justify-start text-muted-foreground sm:justify-center", isAssigneePickerOpen && "bg-muted text-foreground")}
+              onClick={() => setIsAssigneePickerOpen((isOpen) => !isOpen)}
+              aria-expanded={isAssigneePickerOpen}
+            >
+              <UserRoundPlus className="h-4 w-4" aria-hidden="true" />
+              {selectedAssignees.length > 0 ? `${selectedAssignees.length} selected` : "Assignees"}
+            </Button>
+            {isAssigneePickerOpen && (
+              <div className="absolute right-0 top-11 z-30 w-72 rounded-xl border border-border bg-surface p-3 shadow-soft">
+                <div className="flex flex-wrap gap-2">
+                  {assignees?.length ? (
+                    assignees.map((assignee) => {
+                      const selected = selectedAssigneeIds.includes(assignee.userId);
+                      const name = getAssigneeName(assignee);
+                      return (
+                        <button
+                          key={assignee.userId}
+                          type="button"
+                          onClick={() => toggleAssignee(assignee.userId)}
+                          className={cn(
+                            "flex max-w-full items-center gap-2 rounded-full border px-2 py-1 text-left text-xs font-bold transition",
+                            selected ? "border-red-200 bg-red-50 text-red-700" : "border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                          )}
+                          aria-pressed={selected}
+                        >
+                          <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-bold", selected ? "bg-red-600 text-white" : "bg-foreground text-white")}>
+                            {getInitials(name)}
+                          </span>
+                          <span className="min-w-0 truncate">{name}</span>
+                          {selected && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm font-medium text-muted-foreground">No team members found.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </form>
@@ -114,4 +193,19 @@ export function TaskCreateInput({
 function dateInputToTimestamp(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day).getTime();
+}
+
+function getAssigneeName(assignee: AssigneeOption) {
+  return assignee.profile?.name ?? assignee.profile?.email ?? "Unknown user";
+}
+
+function getInitials(name: string) {
+  return (
+    name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "?"
+  );
 }

@@ -29,7 +29,7 @@ export function UpcomingView() {
   }
 
   return (
-    <AppShell active="Upcoming" title="Upcoming" eyebrow="Next commitments">
+    <AppShell active="Upcoming" title="Upcoming" workspace={{ id: workspace.team._id, name: workspace.team.name, canRename: currentMembership?.role === "owner" || currentMembership?.role === "admin" }}>
       {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />}
     </AppShell>
   );

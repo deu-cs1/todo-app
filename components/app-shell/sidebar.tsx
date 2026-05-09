@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import { CalendarDays, CircleDot, Inbox, LayoutList, Settings, UsersRound } from "lucide-react";
+import { CalendarDays, ChevronRight, CircleDot, Inbox, LayoutList, Settings, UsersRound, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +18,7 @@ const navItems = [
 
 export function Sidebar({ active = "My Tasks" }: { active?: string }) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const activeItem =
     navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.label ??
     (pathname.includes("/members") ? "Members" : pathname.includes("/settings") ? "Settings" : pathname.includes("/team/") ? "Teams" : active);
@@ -24,9 +27,26 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
   const projects = workspace?.projects ?? [];
   const members = workspace?.members ?? [];
 
-  return (
-    <aside className="hidden h-dvh w-72 shrink-0 border-r border-border bg-surface p-4 lg:block">
-      <Link href="/" className="flex h-11 items-center gap-2 px-2 font-bold">
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  const sidebarContent = (onNavigate?: () => void) => (
+    <>
+      <Link href="/" onClick={onNavigate} className="flex h-11 items-center gap-2 px-2 font-bold">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-white">
           <CircleDot className="h-4 w-4" aria-hidden="true" />
         </span>
@@ -37,6 +57,7 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
           <Link
             key={item.href}
             href={item.href}
+            onClick={onNavigate}
             className={cn(
               "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground",
               activeItem === item.label && "bg-red-50 text-red-700",
@@ -61,6 +82,7 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
             <Link
               key={project._id}
               href={`/app/team/${project.teamId}/project/${project._id}`}
+              onClick={onNavigate}
               className="flex h-10 items-center justify-between rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <span className="flex min-w-0 items-center gap-3">
@@ -74,6 +96,7 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
       <div className="mt-6 border-t border-border pt-4">
         <Link
           href={team ? `/app/team/${team._id}/settings` : "/app/my-tasks"}
+          onClick={onNavigate}
           className={cn(
             "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground",
             activeItem === "Settings" && "bg-red-50 text-red-700",
@@ -83,6 +106,80 @@ export function Sidebar({ active = "My Tasks" }: { active?: string }) {
           Settings
         </Link>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="hidden h-dvh w-72 shrink-0 border-r border-border bg-surface p-4 lg:block">{sidebarContent()}</aside>
+
+      <motion.button
+        type="button"
+        aria-label="Open sidebar"
+        className="fixed inset-y-0 left-0 z-30 flex w-7 items-center justify-start bg-transparent pl-0.5 text-muted-foreground lg:hidden"
+        drag="x"
+        dragConstraints={{ left: 0, right: 96 }}
+        dragElastic={0.08}
+        dragMomentum={false}
+        dragSnapToOrigin
+        whileTap={{ cursor: "grabbing" }}
+        onClick={() => setMobileOpen(true)}
+        onDragEnd={(_, info) => {
+          if (info.offset.x > 54 || info.velocity.x > 420) {
+            setMobileOpen(true);
+          }
+        }}
+      >
+        <span className="grid h-16 w-5 place-items-center rounded-r-full border border-l-0 border-border bg-surface/90 shadow-line backdrop-blur">
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </span>
+      </motion.button>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.button
+              type="button"
+              aria-label="Close sidebar"
+              className="fixed inset-0 z-40 bg-foreground/32 lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.aside
+              role="dialog"
+              aria-modal="true"
+              aria-label="Sidebar navigation"
+              className="fixed inset-y-0 left-0 z-50 w-[min(18rem,calc(100vw-3rem))] overflow-y-auto border-r border-border bg-surface p-4 shadow-soft lg:hidden"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 430, damping: 36, mass: 0.9 }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={{ left: 0.16, right: 0 }}
+              dragMomentum={false}
+              onDragEnd={(_, info) => {
+                if (info.offset.x < -68 || info.velocity.x < -420) {
+                  setMobileOpen(false);
+                }
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Close sidebar"
+                className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {sidebarContent(() => setMobileOpen(false))}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

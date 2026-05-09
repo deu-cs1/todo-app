@@ -117,9 +117,14 @@ export function TeamsView() {
 
 export function TeamView({ teamId }: { teamId: Id<"teams"> }) {
   const workspace = useQuery(api.teams.getWorkspaceByTeamId, { teamId });
+  const currentMembership = workspace?.members.find((member) => member.userId === workspace.user.userId);
 
   return (
-    <AppShell title={workspace?.team?.name ?? "Team"} eyebrow="Team dashboard">
+    <AppShell
+      title="Team dashboard"
+      eyebrow="Team dashboard"
+      workspace={workspace?.team ? { id: workspace.team._id, name: workspace.team.name, canRename: currentMembership?.role === "owner" || currentMembership?.role === "admin" } : undefined}
+    >
       {workspace === undefined ? (
         <LoadingState />
       ) : workspace === null ? (

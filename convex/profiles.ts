@@ -23,7 +23,7 @@ export const upsertProfile = mutation({
     const user = await requireCurrentUser(ctx);
     const timestamp = now();
     const name = assertLength(args.name, 2, 80, "Name");
-    const email = assertLength(args.email.toLowerCase(), 3, 160, "Email");
+    const email = assertLength(args.email.toLowerCase().trim(), 3, 160, "Email");
     const existing = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", user.userId)).unique();
 
     if (existing) {
@@ -32,5 +32,30 @@ export const upsertProfile = mutation({
     }
 
     return ctx.db.insert("profiles", { userId: user.userId, name, email, avatarUrl: args.avatarUrl, createdAt: timestamp, updatedAt: timestamp });
+  },
+});
+
+export const setExperimentalFeaturesEnabled = mutation({
+  args: { enabled: v.boolean() },
+  handler: async (ctx, args) => {
+    const user = await requireCurrentUser(ctx);
+    const timestamp = now();
+    const existing = await ctx.db.query("profiles").withIndex("by_userId", (q) => q.eq("userId", user.userId)).unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { experimentalFeaturesEnabled: args.enabled, updatedAt: timestamp });
+      return existing._id;
+    }
+
+    const name = assertLength((user.name ?? "Todo user").trim(), 2, 80, "Name");
+    const email = assertLength((user.email ?? `${user.userId}@example.com`).toLowerCase().trim(), 3, 160, "Email");
+    return ctx.db.insert("profiles", {
+      userId: user.userId,
+      name,
+      email,
+      experimentalFeaturesEnabled: args.enabled,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
   },
 });

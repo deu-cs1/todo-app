@@ -32,9 +32,9 @@ export function ProjectView({ teamId, projectId }: { teamId: Id<"teams">; projec
   }
 
   return (
-    <AppShell title={project.name} eyebrow={workspace.team.name}>
+    <AppShell title={project.name} workspace={{ id: workspace.team._id, name: workspace.team.name, canRename: currentMembership?.role === "owner" || currentMembership?.role === "admin" }}>
       <div className="space-y-6">
-        <TaskCreateInput teamId={workspace?.team?._id} projectId={projectId} assigneeIds={workspace?.members.map((member) => member.userId)} />
+        <TaskCreateInput teamId={workspace?.team?._id} projectId={projectId} assignees={workspace?.members} />
         {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />}
       </div>
     </AppShell>
