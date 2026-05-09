@@ -12,6 +12,7 @@ export function TodayView() {
   const workspace = useQuery(api.teams.getMyWorkspace);
   const tasks = useQuery(api.tasks.listTodayTasks, workspace ? {} : "skip");
   const defaultProject = workspace?.projects[0];
+  const currentMembership = workspace?.members.find((member) => member.userId === workspace.user.userId);
 
   if (workspace === undefined) {
     return (
@@ -33,7 +34,7 @@ export function TodayView() {
     <AppShell active="Today" title="Today" eyebrow="Personal focus">
       <div className="space-y-6">
         <TaskCreateInput teamId={workspace.team._id} projectId={defaultProject?._id} assigneeIds={[workspace.user.userId]} />
-        {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} />}
+        {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />}
       </div>
     </AppShell>
   );

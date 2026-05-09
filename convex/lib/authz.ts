@@ -9,17 +9,33 @@ export async function requireCurrentUser(ctx: Ctx) {
     throw new Error("Authentication required.");
   }
   const userId = identity.subject as Id<"users">;
-  const authUser = await ctx.db.get(userId);
-  const passwordAccount = await ctx.db
-    .query("authAccounts")
-    .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", "password"))
-    .first();
+  const authUser = await safeGetAuthUser(ctx, userId);
+  const passwordAccount = await safeGetPasswordAccount(ctx, userId);
   const email = identity.email?.trim() || authUser?.email?.trim() || passwordAccount?.providerAccountId.trim() || "";
   return {
     userId: identity.subject,
     email,
     name: identity.name?.trim() || authUser?.name?.trim() || email || "Unknown user",
   };
+}
+
+async function safeGetAuthUser(ctx: Ctx, userId: Id<"users">) {
+  try {
+    return await ctx.db.get(userId);
+  } catch {
+    return null;
+  }
+}
+
+async function safeGetPasswordAccount(ctx: Ctx, userId: Id<"users">) {
+  try {
+    return await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId).eq("provider", "password"))
+      .first();
+  } catch {
+    return null;
+  }
 }
 
 export async function requireTeamMember(ctx: Ctx, teamId: Id<"teams">) {

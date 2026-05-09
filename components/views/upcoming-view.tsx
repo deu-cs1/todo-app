@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 export function UpcomingView() {
   const workspace = useQuery(api.teams.getMyWorkspace);
   const tasks = useQuery(api.tasks.listUpcomingTasks, workspace ? {} : "skip");
+  const currentMembership = workspace?.members.find((member) => member.userId === workspace.user.userId);
 
   if (workspace === undefined) {
     return (
@@ -29,7 +30,7 @@ export function UpcomingView() {
 
   return (
     <AppShell active="Upcoming" title="Upcoming" eyebrow="Next commitments">
-      {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} />}
+      {tasks === undefined ? <LoadingState /> : <TaskList tasks={tasks} currentUserId={workspace.user.userId} currentUserRole={currentMembership?.role} />}
     </AppShell>
   );
 }

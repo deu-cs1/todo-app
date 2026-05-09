@@ -31,6 +31,8 @@ const statusPulse: Record<AssignmentStatus, string> = {
   completed: "bg-success",
 };
 
+const deleteAnimationMs = 650;
+
 export function TaskRow({
   task,
   currentUserId,
@@ -58,9 +60,14 @@ export function TaskRow({
     if (!canDelete || isDeleting) return;
     setIsDeleting(true);
     try {
+      await Promise.all([
+        animate(dragX, 132, { duration: deleteAnimationMs / 1000, ease: "easeOut" }),
+        new Promise((resolve) => window.setTimeout(resolve, deleteAnimationMs)),
+      ]);
       await deleteTask({ taskId: task._id });
-    } finally {
+    } catch {
       setIsDeleting(false);
+      animate(dragX, 0, { type: "spring", stiffness: 520, damping: 34 });
     }
   }
 
@@ -68,7 +75,12 @@ export function TaskRow({
     <motion.div
       layout
       exit={{ opacity: 0, x: 72, scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.8 }}
+      transition={{
+        layout: { type: "spring", stiffness: 420, damping: 32, mass: 0.8 },
+        opacity: { duration: 0.42, ease: "easeOut" },
+        x: { duration: 0.42, ease: "easeOut" },
+        scale: { duration: 0.42, ease: "easeOut" },
+      }}
       className="relative overflow-hidden rounded-xl"
       style={{ backgroundColor: dangerBackground }}
     >
@@ -85,128 +97,134 @@ export function TaskRow({
         </motion.div>
       )}
       <motion.article
-      layout
-      drag={canDelete ? "x" : false}
-      dragConstraints={{ left: 0, right: 132 }}
-      dragElastic={0.12}
-      dragMomentum={false}
-      style={{ x: dragX }}
-      onDragEnd={(_, info) => {
-        if (canDelete && info.offset.x > 104) {
-          void handleDelete();
-          return;
-        }
-        animate(dragX, 0, { type: "spring", stiffness: 520, damping: 34 });
-      }}
-      animate={{
-        scale: activeStatus === "todo" ? 1 : [1, 1.012, 1],
-        borderColor:
-          activeStatus === "completed"
-            ? "rgba(16, 185, 129, 0.36)"
-            : activeStatus === "in_progress"
-              ? "rgba(245, 158, 11, 0.38)"
-              : "hsl(var(--border))",
-      }}
-      transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.8 }}
-      className={cn(
-        "group relative overflow-hidden rounded-xl border border-border bg-surface p-4 shadow-line transition-shadow duration-200 hover:shadow-soft",
-        isDeleting && "pointer-events-none opacity-70",
-      )}
-    >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeStatus}
-          aria-hidden="true"
-          className={cn("pointer-events-none absolute inset-0 bg-gradient-to-r", statusGlow[activeStatus])}
-          initial={{ opacity: 0, x: "-18%" }}
-          animate={{ opacity: activeStatus === "todo" ? 0 : [0, 1, 0], x: "18%" }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.72, ease: "easeOut" }}
-        />
-      </AnimatePresence>
-      <div className="flex gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={myAssignment ? "Update my status" : "View task status"}
-          onClick={() => {
-            if (myAssignment) {
-              void updateStatus({ taskId: task._id, status: nextStatus });
-            }
-          }}
-          className={cn("relative mt-0.5 shrink-0 rounded-full", iconTone[activeStatus])}
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={activeStatus}
-              className="absolute inset-0 grid place-items-center"
-              initial={{ opacity: 0, rotate: -35, scale: 0.65 }}
-              animate={{ opacity: 1, rotate: 0, scale: 1 }}
-              exit={{ opacity: 0, rotate: 35, scale: 0.65 }}
-              transition={{ type: "spring", stiffness: 520, damping: 28 }}
-            >
-              <Icon className="h-5 w-5" aria-hidden="true" />
-            </motion.span>
-          </AnimatePresence>
-          <motion.span
+        layout
+        drag={canDelete ? "x" : false}
+        dragConstraints={{ left: 0, right: 132 }}
+        dragElastic={0.12}
+        dragMomentum={false}
+        style={{ x: dragX }}
+        onDragEnd={(_, info) => {
+          if (canDelete && info.offset.x > 104) {
+            void handleDelete();
+            return;
+          }
+          animate(dragX, 0, { type: "spring", stiffness: 520, damping: 34 });
+        }}
+        animate={{
+          opacity: isDeleting ? 0 : 1,
+          scale: isDeleting ? 0.98 : activeStatus === "todo" ? 1 : [1, 1.012, 1],
+          borderColor:
+            activeStatus === "completed"
+              ? "rgba(16, 185, 129, 0.36)"
+              : activeStatus === "in_progress"
+                ? "rgba(245, 158, 11, 0.38)"
+                : "hsl(var(--border))",
+        }}
+        transition={{
+          layout: { type: "spring", stiffness: 420, damping: 32, mass: 0.8 },
+          opacity: { duration: deleteAnimationMs / 1000, ease: "easeOut" },
+          scale: { duration: isDeleting ? deleteAnimationMs / 1000 : 0.28, ease: "easeOut" },
+          borderColor: { duration: 0.2, ease: "easeOut" },
+        }}
+        className={cn(
+          "group relative overflow-hidden rounded-xl border border-border bg-surface p-4 shadow-line transition-shadow duration-200 hover:shadow-soft",
+          isDeleting && "pointer-events-none opacity-70",
+        )}
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeStatus}
             aria-hidden="true"
-            className={cn("absolute inset-2 rounded-full opacity-20 blur-sm", statusPulse[activeStatus])}
-            animate={{ scale: activeStatus === "todo" ? 0 : [0.55, 1.5, 0.7], opacity: activeStatus === "todo" ? 0 : [0, 0.32, 0] }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
+            className={cn("pointer-events-none absolute inset-0 bg-gradient-to-r", statusGlow[activeStatus])}
+            initial={{ opacity: 0, x: "-18%" }}
+            animate={{ opacity: activeStatus === "todo" ? 0 : [0, 1, 0], x: "18%" }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.72, ease: "easeOut" }}
           />
-        </Button>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0">
-              <h3 className="font-semibold leading-6 text-foreground">{task.title}</h3>
-              <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">{task.description}</p>
+        </AnimatePresence>
+        <div className="flex gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={myAssignment ? "Update my status" : "View task status"}
+            onClick={() => {
+              if (myAssignment) {
+                void updateStatus({ taskId: task._id, status: nextStatus });
+              }
+            }}
+            className={cn("relative mt-0.5 shrink-0 rounded-full", iconTone[activeStatus])}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={activeStatus}
+                className="absolute inset-0 grid place-items-center"
+                initial={{ opacity: 0, rotate: -35, scale: 0.65 }}
+                animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                exit={{ opacity: 0, rotate: 35, scale: 0.65 }}
+                transition={{ type: "spring", stiffness: 520, damping: 28 }}
+              >
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </motion.span>
+            </AnimatePresence>
+            <motion.span
+              aria-hidden="true"
+              className={cn("absolute inset-2 rounded-full opacity-20 blur-sm", statusPulse[activeStatus])}
+              animate={{ scale: activeStatus === "todo" ? 0 : [0.55, 1.5, 0.7], opacity: activeStatus === "todo" ? 0 : [0, 0.32, 0] }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+            />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0">
+                <h3 className="font-semibold leading-6 text-foreground">{task.title}</h3>
+                <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">{task.description}</p>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {canDelete && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete task: ${task.title}`}
+                    title="Delete task"
+                    disabled={isDeleting}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void handleDelete();
+                    }}
+                    className="h-11 w-11 rounded-full text-red-700 hover:bg-red-50 hover:text-red-800"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                )}
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={overall}
+                    initial={{ opacity: 0, y: 6, scale: 0.92 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.92 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  >
+                    <StatusChip status={overall} />
+                  </motion.div>
+                </AnimatePresence>
+                <PriorityBadge priority={task.priority} />
+              </div>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {canDelete && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Delete task: ${task.title}`}
-                  title="Delete task"
-                  disabled={isDeleting}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void handleDelete();
-                  }}
-                  className="h-11 w-11 rounded-full text-red-700 hover:bg-red-50 hover:text-red-800"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              )}
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={overall}
-                  initial={{ opacity: 0, y: 6, scale: 0.92 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.92 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                >
-                  <StatusChip status={overall} />
-                </motion.div>
-              </AnimatePresence>
-              <PriorityBadge priority={task.priority} />
-            </div>
-          </div>
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{task.project?.name ?? task.projectName}</span>
-              <DueDateBadge date={task.dueDate} />
-              <span>{task.assignments.length} assignees</span>
-            </div>
-            <div className="flex -space-x-2">
-              {task.assignments.map((assignment: any) => (
-                <MemberAvatar key={assignment.userId} userId={assignment.userId} profile={assignment.profile} />
-              ))}
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{task.project?.name ?? task.projectName}</span>
+                <DueDateBadge date={task.dueDate} />
+                <span>{task.assignments.length} assignees</span>
+              </div>
+              <div className="flex -space-x-2">
+                {task.assignments.map((assignment: any) => (
+                  <MemberAvatar key={assignment.userId} userId={assignment.userId} profile={assignment.profile} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
       </motion.article>
     </motion.div>
   );
