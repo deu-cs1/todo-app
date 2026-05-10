@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -58,11 +59,53 @@ function NotificationMenu() {
         body: string;
         createdAt: number;
         readAt?: number;
+        targetUrl?: string;
       }>
     | undefined;
   const setRead = useMutation(api.notifications.setRead);
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const clickTimerRef = useRef<number | null>(null);
   const hasUnread = notifications?.some((notification) => !notification.readAt) ?? false;
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) {
+        window.clearTimeout(clickTimerRef.current);
+      }
+    };
+  }, []);
+
+  function toggleNotificationRead(notification: { _id: Id<"notifications">; readAt?: number }) {
+    void setRead({ notificationId: notification._id, read: !notification.readAt });
+  }
+
+  function queueReadToggle(notification: { _id: Id<"notifications">; readAt?: number }) {
+    if (clickTimerRef.current) {
+      window.clearTimeout(clickTimerRef.current);
+    }
+
+    clickTimerRef.current = window.setTimeout(() => {
+      toggleNotificationRead(notification);
+      clickTimerRef.current = null;
+    }, 220);
+  }
+
+  async function openNotification(notification: { _id: Id<"notifications">; readAt?: number; targetUrl?: string }) {
+    if (clickTimerRef.current) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+
+    if (!notification.readAt) {
+      await setRead({ notificationId: notification._id, read: true });
+    }
+
+    if (notification.targetUrl) {
+      setIsOpen(false);
+      router.push(notification.targetUrl);
+    }
+  }
 
   return (
     <div className="relative">
@@ -85,11 +128,25 @@ function NotificationMenu() {
               <p className="px-4 py-5 text-sm text-muted-foreground">No notifications yet.</p>
             ) : (
               notifications.map((notification) => (
-                <label key={notification._id} className="flex cursor-pointer gap-3 border-b border-border px-4 py-3 last:border-b-0 hover:bg-muted/60">
+                <div
+                  key={notification._id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => queueReadToggle(notification)}
+                  onDoubleClick={() => void openNotification(notification)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleNotificationRead(notification);
+                    }
+                  }}
+                  className="flex w-full cursor-pointer gap-3 border-b border-border px-4 py-3 text-left last:border-b-0 hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-red-100"
+                >
                   <input
                     type="checkbox"
                     checked={Boolean(notification.readAt)}
-                    onChange={(event) => void setRead({ notificationId: notification._id, read: event.currentTarget.checked })}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={() => toggleNotificationRead(notification)}
                     className="mt-1 h-4 w-4 rounded border-border accent-red-600"
                     aria-label={`Mark ${notification.title} as read`}
                   />
@@ -101,7 +158,7 @@ function NotificationMenu() {
                     <span className="mt-1 block text-sm leading-6 text-muted-foreground">{notification.body}</span>
                     <span className="mt-1 block text-xs font-medium text-muted-foreground">{formatNotificationTime(notification.createdAt)}</span>
                   </span>
-                </label>
+                </div>
               ))
             )}
           </div>

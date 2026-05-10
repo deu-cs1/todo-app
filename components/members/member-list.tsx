@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MemberAvatar } from "@/components/tasks/member-avatar";
 
 export function MemberList({
   members,
@@ -45,9 +46,7 @@ export function MemberList({
           return (
             <div key={member._id} className="flex flex-col gap-3 border-b border-border p-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-sm font-bold text-white">
-                  {getInitials(member.profile?.name ?? member.userId)}
-                </span>
+                <MemberAvatar userId={member.userId} profile={member.profile} size="md" />
                 <div>
                   <p className="font-semibold">{member.profile?.name ?? member.userId}</p>
                   <p className="text-sm text-muted-foreground">{member.profile?.email ?? "No email"}</p>
@@ -67,13 +66,4 @@ export function MemberList({
       </div>
     </div>
   );
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 }

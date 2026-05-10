@@ -31,17 +31,31 @@ const statusPulse: Record<AssignmentStatus, string> = {
   completed: "bg-success",
 };
 
+const assignmentSummaryLabels: Record<AssignmentStatus, string> = {
+  todo: "Not started",
+  in_progress: "Doing",
+  completed: "Done",
+};
+
+const assignmentSummaryClasses: Record<AssignmentStatus, string> = {
+  todo: "border-slate-200 bg-slate-50 text-slate-600",
+  in_progress: "border-amber-200 bg-amber-50 text-amber-700",
+  completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+};
+
 const deleteAnimationMs = 450;
 
 export function TaskRow({
   task,
   currentUserId,
   currentUserRole,
+  isSelected = false,
 }: {
   task: any;
   index?: number;
   currentUserId?: string;
   currentUserRole?: "owner" | "admin" | "member";
+  isSelected?: boolean;
 }) {
   const updateStatus = useMutation(api.tasks.updateMyAssignmentStatus);
   const deleteTask = useMutation(api.tasks.deleteTask);
@@ -55,6 +69,8 @@ export function TaskRow({
   const Icon = myAssignment?.status === "completed" ? CheckCircle2 : myAssignment?.status === "in_progress" ? Clock3 : Circle;
   const nextStatus = myAssignment?.status === "todo" ? "in_progress" : myAssignment?.status === "in_progress" ? "completed" : "todo";
   const canDelete = currentUserRole === "owner";
+  const assignmentGroups = groupAssignmentsByStatus(task.assignments);
+  const showAssignmentBreakdown = task.assignments.length > 1;
 
   async function handleDelete() {
     if (!canDelete || isDeleting) return;
@@ -128,6 +144,7 @@ export function TaskRow({
         }}
         className={cn(
           "group relative overflow-hidden rounded-xl border border-border bg-surface p-4 shadow-line transition-shadow duration-200 hover:shadow-soft",
+          isSelected && "border-red-300 ring-2 ring-red-100",
           isDeleting && "pointer-events-none opacity-70",
         )}
       >
@@ -223,9 +240,44 @@ export function TaskRow({
                 ))}
               </div>
             </div>
+            {showAssignmentBreakdown && (
+              <div className="mt-4 grid gap-2 md:grid-cols-3">
+                {(["in_progress", "completed", "todo"] as AssignmentStatus[]).map((status) => (
+                  <AssignmentStatusGroup key={status} status={status} assignments={assignmentGroups[status]} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </motion.article>
     </motion.div>
   );
+}
+
+function AssignmentStatusGroup({ status, assignments }: { status: AssignmentStatus; assignments: any[] }) {
+  return (
+    <div className={cn("min-w-0 rounded-lg border px-3 py-2", assignmentSummaryClasses[status])}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wide">{assignmentSummaryLabels[status]}</span>
+        <span className="text-xs font-bold">{assignments.length}</span>
+      </div>
+      <p className="mt-1 truncate text-xs font-medium" title={assignments.map(getAssignmentName).join(", ") || "None"}>
+        {assignments.length > 0 ? assignments.map(getAssignmentName).join(", ") : "None"}
+      </p>
+    </div>
+  );
+}
+
+function groupAssignmentsByStatus(assignments: any[]) {
+  return assignments.reduce<Record<AssignmentStatus, any[]>>(
+    (groups, assignment) => {
+      groups[assignment.status as AssignmentStatus].push(assignment);
+      return groups;
+    },
+    { todo: [], in_progress: [], completed: [] },
+  );
+}
+
+function getAssignmentName(assignment: any) {
+  return assignment.profile?.name ?? assignment.profile?.email ?? "Unknown member";
 }

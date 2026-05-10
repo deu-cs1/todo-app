@@ -8,7 +8,25 @@ export const listMine = query({
   handler: async (ctx) => {
     const user = await requireCurrentUser(ctx);
     const notifications = await ctx.db.query("notifications").withIndex("by_userId", (q) => q.eq("userId", user.userId)).collect();
-    return notifications.sort((a, b) => b.createdAt - a.createdAt).slice(0, 20);
+    const latestNotifications = notifications.sort((a, b) => b.createdAt - a.createdAt).slice(0, 20);
+
+    return Promise.all(
+      latestNotifications.map(async (notification) => {
+        if (!notification.taskId) {
+          return notification;
+        }
+
+        const task = await ctx.db.get(notification.taskId);
+        if (!task) {
+          return notification;
+        }
+
+        return {
+          ...notification,
+          targetUrl: `/app/team/${task.teamId}/project/${task.projectId}?task=${task._id}`,
+        };
+      }),
+    );
   },
 });
 
